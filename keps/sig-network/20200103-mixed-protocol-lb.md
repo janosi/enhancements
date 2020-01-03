@@ -181,8 +181,7 @@ A user can ask for an internal TCP/UPD Load Balancer via a K8s Service definitio
 The VPC Load Balancer supports only TCP.
 NLB supports both TCP and UDP. The usage of NLB does not have pricing effects, it is part of the IKS basic package.
 
-
-#### OpenStack
+#### OpenStack
 
 The OpenStack CPI both UDP and TCP in Service definitions and can configure the Octavia listeners with the protocols defined in the Service.
 Octavia supports TCP and UPD on listeners, an own listener must be configured for each protocol. 
