@@ -186,6 +186,16 @@ NLB supports both TCP and UDP. The usage of NLB does not have pricing effects, i
 The OpenStack CPI both UDP and TCP in Service definitions and can configure the Octavia listeners with the protocols defined in the Service.
 Octavia supports TCP and UPD on listeners, an own listener must be configured for each protocol. 
 
+#### Tencent Cloud
+
+The Tencent Cloud CPI supports both UDP and TCP in Service definitions and can configure the CLB listeners with the protocols defined in the Service.
+The Tencent Cloud CLB supports TCP and UPD on listeners, an own listener must be configured for each protocol. 
+The number of listeners does not affect CLB pricing. CLB pricing is time (day) based and not tied to the number of listeners.
+https://intl.cloud.tencent.com/document/product/214/8848
+
+A user can ask for an internal Load Balancer via a K8s Service definition that  has the annotation `service.kubernetes.io/qcloud-loadbalancer-internal-subnetid: subnet-xxxxxxxx`. Internal CLBs are free.
+
+
 ### Risks and Mitigations
 
 The goal of the current restriction on the K8s API was to prevent an unexpected extra charging for Load Balancers that were created based on Services with mixed protocol definitions.
@@ -196,6 +206,7 @@ AWS: there is no immediate impact on the pricing side as the AWS CPI limits the 
 GCE: here the risk is valid once the user exceeds the threshold of 5 forwarding rules.
 IBM Cloud: no risk.
 OpenStack: here the risk is valid as there is almost no chance to analyze all the public OpenStack cloud providers with regard to their pricing policies
+Tencent Cloud: no risk
 
 A possible mitigation is to put the feature behind option control. 
 
