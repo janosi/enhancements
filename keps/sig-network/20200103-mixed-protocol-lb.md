@@ -151,21 +151,25 @@ https://www.alibabacloud.com/help/doc-detail/74809.htm
 
 A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"`. Internal SLBs are free.
 
+Summary: Alibaba CPI and SLB seems to support mixed protocol Services, and the pricing is not based on the number of protocols per Service.
+
 #### AWS
 
-The AWS CPI does not support other protocol than TCP for load balancers.
+The AWS CPI does not support other protocol in the Service definition than TCP for load balancers. Beside that the AWS CPI looks for annotations on the Service to determine whether TCP, TLS or HTTP(S) listener should be created in the AWS ELB for a configured Service port.
 
-If this restriction were removed from the AWS CPI then AWS NLB could support TCP and UDP protocols behind the same IP address. An NLB Listener can be configured to listen both on TCP and UDP protocols.
+AWS Classic LB supports TCP,TLS, and HTTP(S) protocols behind the same IP address. 
 
-NLB targets also support the PROXY protocol.
+AWS Network LB supports TCP/TLS and UDP protocols behind the same IP address. As we can see, UDP cannot be utilized currently, due to the limitation in the AWS CPI.
 
-HTTP support would require AWS ALB, but that LB type does not support TCP or UDP, i.e. the usage of TCP+HTTP or UDP+HTTP on the same LB instace behind the same IP address is not possible in AWS.
+If NLB is used the HTTP(S) support would require AWS Application LB, but on the other hand that LB type does not support TCP or UDP, i.e. the usage of TCP+HTTP or UDP+HTTP on the same LB instace behind the same IP address is not possible in AWS.
 
-From pricing perspective the AWS NLB has the following model:
+From pricing perspective the AWS NLB and the CLB have the following models:
 https://aws.amazon.com/elasticloadbalancing/pricing/
-It is rather usage based than "number of protocols" based, though it is true that TCP and UDP has separated quotas in the pricing units.
+Both are rather usage based than "number of protocols" based, though it is true that in case of NLB TCP, UDP and TLS has separated quotas in the pricing units.
 
-A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0`. So far the author could not find any difference in the usage and pricing of those when compared to the external LBs - except the pre-requisite of a private subnet on which the LB can be deployed.
+A user can ask for an internal Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0`. So far the author could not find any difference in the usage and pricing of those when compared to the external LBs - except the pre-requisite of a private subnet on which the LB can be deployed.
+
+Summary: AWS CPI is the current bottleneck with its TCP-only limitation.
 
 #### Azure
 
