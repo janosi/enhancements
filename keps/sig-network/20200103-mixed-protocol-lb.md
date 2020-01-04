@@ -142,30 +142,43 @@ As a Kubernetes cluster user I want to expose my application that provides its s
 
 #### Alibaba
 
-The Alibaba CPI supports both UDP and TCP in Service definitions and can configure the SLB listeners with the protocols defined in the Service.
-The Alibaba SLB supports TCP and UPD on listeners, an own listener must be configured for each protocol. 
+The Alibaba CPI supports TCP, UDP and HTTPS in Service definitions and can configure the SLB listeners with the protocols defined in the Service.
+
+The Alibaba SLB supports TCP, UDP and HTTPS listeners, an own listener must be configured for each protocol, and those listeners can be assigned to the same SLB instance. 
+
 The number of listeners does not affect SLB pricing.
 https://www.alibabacloud.com/help/doc-detail/74809.htm
 
-A user can ask for an internal TCP/UPD Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"`. Internal SLBs are free.
+A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type: "intranet"`. Internal SLBs are free.
 
 #### AWS
 
 The AWS CPI does not support other protocol than TCP for load balancers.
+
 If this restriction were removed from the AWS CPI then AWS NLB could support TCP and UDP protocols behind the same IP address. An NLB Listener can be configured to listen both on TCP and UDP protocols.
+
+NLB targets also support the PROXY protocol.
+
+HTTP support would require AWS ALB, but that LB type does not support TCP or UDP, i.e. the usage of TCP+HTTP or UDP+HTTP on the same LB instace behind the same IP address is not possible in AWS.
+
 From pricing perspective the AWS NLB has the following model:
 https://aws.amazon.com/elasticloadbalancing/pricing/
 It is rather usage based than "number of protocols" based, though it is true that TCP and UDP has separated quotas in the pricing units.
 
-A user can ask for an internal TCP/UPD Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0`. So far the author could not find any difference in the usage and pricing of those when compared to the external LBs - except the pre-requisite of a private subnet on which the LB can be deployed.
+A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0`. So far the author could not find any difference in the usage and pricing of those when compared to the external LBs - except the pre-requisite of a private subnet on which the LB can be deployed.
 
 #### Azure
 
-Azure Cloud Provider's LB documentation: https://github.com/kubernetes-sigs/cloud-provider-azure/blob/master/docs/services/README.md
+Azure CPI LB documentation: https://github.com/kubernetes-sigs/cloud-provider-azure/blob/master/docs/services/README.md
 
-The Azure Cloud Provider already supports the usage of both UDP and TCP protocols in the same Service definition. It is achieved with the CPI specific annotation `service.beta.kubernetes.io/azure-load-balancer-mixed-protocols`. If this key has value `true` in the Service definition the Azure CPI adds the other protocol value (UDP or TCP) to its internal Service representation, and as a consequence it also manages 2 load balancer rules for the specific frontend. 
-Only TCP and UDP are supported in the mixed protocol configuration.
+The Azure CPI already supports the usage of both UDP and TCP protocols in the same Service definition. It is achieved with the CPI specific annotation `service.beta.kubernetes.io/azure-load-balancer-mixed-protocols`. If this key has value `true` in the Service definition the Azure CPI adds the other protocol value (UDP or TCP) to its internal Service representation, and as a consequence it also manages 2 load balancer rules for the specific frontend. 
+
+Only TCP and UDP are supported in the current mixed protocol configuration.
+
+The Azure Load Balancer supports only TCP and UDP as protocols. HTTP support would require the usage of the Azure Application Gateway. I.e. HTTP and L4 protocols cannot be used on the same LB instance/IP address
+
 Basic Azure Load Balancers are free.
+
 Pricing of the Standard Azure Load Balancer is based on load-balancing rules and outbound rules.  There is a flat price up to 5 rules, on top of which every new forwarding rule has additional cost. 
 https://docs.microsoft.com/en-us/azure/load-balancer/load-balancer-overview#pricing
 
@@ -174,9 +187,12 @@ A user can ask for an internal Azure Load Balancer via a K8s Service definition 
 #### GCE
 
 The GCE CPI supports both TCP and UDP protocols in Services. Other protocols are not supported.
-GCE/GKE creates Network Load Balancers based on the K8s Services with type=LoadBalancer. In GCE there are "forwarding rules" that define how the incoming traffic shall be forwarded to the compute instances. A single forwarding rule can support either TCP or UDP but not both. In order to have both TCP and UPD forwarding rules we have to create separate forwarding rule instances for those. Two or more forwarding rules can share the same external IP if
+
+GCE/GKE creates Network Load Balancers based on the K8s Services with type=LoadBalancer. In GCE there are "forwarding rules" that define how the incoming traffic shall be forwarded to the compute instances. A single forwarding rule can support either TCP or UDP but not both. In order to have both TCP and UDP forwarding rules we have to create separate forwarding rule instances for those. Two or more forwarding rules can share the same external IP if
 - the network load balancer type is External
 - the external IP address is not ephemeral but static
+
+HTTP protocol support: there is a different LB type in GCE for HTTP traffic: HTTP(S) LB. I.e. just like in the case of AWS it is not possible to have e.g. TCP+HTTP or UDP+HTTP behind the same LB/IP address.
 
 Forwarding rule pricing is per rule: there is a flat price up to 5 forwarding rule instances, on top of which every new forwarding rule has additional cost. 
 
@@ -184,26 +200,33 @@ https://cloud.google.com/compute/network-pricing#forwarding_rules_charges
 
 As we can see two different protocols in the same K8s Service definition would result in the creation of 2 forwarding rules in GCP, which has the same fixed price only up to 5 forwarding rule instances, but on top of that every new rule means extra cost.
 
-A user can ask for an internal TCP/UPD Load Balancer via a K8s Service definition that also has the annotation `cloud.google.com/load-balancer-type: "Internal"`. Forwarding rules are also part of the GCE Internal TCP/UPD Load Balancer architecture, but in case of Internal TCP/UPD Load Balancer it is not supported to define different forwarding rules with different protocols for the same IP address. That is, for Services with type=LoadBalancer and with annotation `cloud.google.com/load-balancer-type: "Internal"` this feature would not be supported.
+A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `cloud.google.com/load-balancer-type: "Internal"`. Forwarding rules are also part of the GCE Internal TCP/UDP Load Balancer architecture, but in case of Internal TCP/UDP Load Balancer it is not supported to define different forwarding rules with different protocols for the same IP address. That is, for Services with type=LoadBalancer and with annotation `cloud.google.com/load-balancer-type: "Internal"` this feature would not be supported.
 
 #### IBM Cloud
 
-The VPC Load Balancer supports only TCP.
-NLB supports both TCP and UDP. The usage of NLB does not have pricing effects, it is part of the IKS basic package.
+The IBM Cloud CPI implementation supports TCP. UDP and SCTP protocol values in K8s Services, and it supports mutiple protocols in a Service. The IBM CLoud CPI creates VPC Load Balancer in a VPC based cluster and NLB in a classic cloud based cluster.
+
+The VPC Load Balancer supports TCP and HTTP, and it is possible to create TCP and HTTP listeners for the same LB instance. UDP is not supported. 
+
+The VPC LB pricing is time and data amount based, i.e. the number of protocols on the same LB instance does not affect it.
+
+NLB supports TCP and UDP. The usage of NLB does not have pricing effects, it is part of the IKS basic package.
 
 #### OpenStack
 
-The OpenStack CPI both UDP and TCP in Service definitions and can configure the Octavia listeners with the protocols defined in the Service.
-Octavia supports TCP and UPD on listeners, an own listener must be configured for each protocol. 
+The OpenStack CPI supports TCP, UDP, HTTP(S) in Service definitions and can configure the Octavia listeners with the protocols defined in the Service.
+Octavia supports TCP, UDP and HTTP(S) on listeners, an own listener must be configured for each protocol. 
 
 #### Oracle Cloud
 
-Oracle Cloud supports only TCP as L4 protocol in its LB solution.
+Oracle Cloud supports TCP, HTTP(S) protocols in its LB solution. The Oracle CPI also supports thse protocols in he K8s Service definitions.
+
+The pricing is based on time and capacity: https://www.oracle.com/cloud/networking/load-balancing-pricing.html
 
 #### Tencent Cloud
 
-The Tencent Cloud CPI supports both UDP and TCP in Service definitions and can configure the CLB listeners with the protocols defined in the Service.
-The Tencent Cloud CLB supports TCP and UPD on listeners, an own listener must be configured for each protocol. 
+The Tencent Cloud CPI supports TCP, UDP and HTTP(S) in Service definitions and can configure the CLB listeners with the protocols defined in the Service.
+The Tencent Cloud CLB supports TCP, UDP and HTTP(S) listeners, an own listener must be configured for each protocol. 
 The number of listeners does not affect CLB pricing. CLB pricing is time (day) based and not tied to the number of listeners.
 https://intl.cloud.tencent.com/document/product/214/8848
 
@@ -214,14 +237,14 @@ A user can ask for an internal Load Balancer via a K8s Service definition that  
 
 The goal of the current restriction on the K8s API was to prevent an unexpected extra charging for Load Balancers that were created based on Services with mixed protocol definitions.
 If the current limitation is removed without any option control we introduce the same risk. Let's see which clouds are exposed:
-Alibaba: the pricing here is not protocol or forwarding rule or listener based. No risk.
-AWS: there is no immediate impact on the pricing side as the AWS CPI limits the scope of protocols to TCP only.
-Azure: Azure pricing is indeed based on load-balancing rules, but this cloud already supports mixed protocols via annotations. There is another risk for Azure, though: if the current restriction is removed from the K8s API, the Azure CPI must be prepared to handle Services with mixed protocols.
-GCE: here the risk is valid once the user exceeds the threshold of 5 forwarding rules.
-IBM Cloud: no risk.
-OpenStack: here the risk is valid as there is almost no chance to analyze all the public OpenStack cloud providers with regard to their pricing policies
-Oracle: no risk
-Tencent Cloud: no risk
+- Alibaba: the pricing here is not protocol or forwarding rule or listener based. No risk.
+- AWS: there is no immediate impact on the pricing side as the AWS CPI limits the scope of protocols to TCP only.
+- Azure: Azure pricing is indeed based on load-balancing rules, but this cloud already supports mixed protocols via annotations. There is another risk for Azure, though: if the current restriction is removed from the K8s API, the Azure CPI must be prepared to handle Services with mixed protocols.
+- GCE: here the risk is valid once the user exceeds the threshold of 5 forwarding rules.
+- IBM Cloud: no risk.
+- OpenStack: here the risk is valid as there is almost no chance to analyze all the public OpenStack cloud providers with regard to their pricing policies
+- Oracle: no risk
+- Tencent Cloud: no risk
 
 A possible mitigation is to put the feature behind option control. 
 
@@ -230,7 +253,7 @@ A possible mitigation is to put the feature behind option control.
 The implementation of the basic logic is ready in this PR:
 https://github.com/kubernetes/kubernetes/pull/75831
 
-Currently a feature gate is used to control its activation status. Though if we want to keep this feature behind option control even when it reaches its GA state we should come up with a different solution, as feature gates are used to control the status of a feature as that graduates from alpha to GA, and they are not meant for option control for features with GA status.
+Currently a feature gate is used to control its activation status. Though if we want to keep this feature behind option control even after it reaches its GA state we should come up with a different solution, as feature gates are used to control the status of a feature as that graduates from alpha to GA, and they are not meant for option control for features with GA status.
 
 ### Option Control Alternatives
 
