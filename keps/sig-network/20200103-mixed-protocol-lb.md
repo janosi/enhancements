@@ -210,9 +210,10 @@ A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definitio
 
 Summary: the implementation of this feature can affect the bills of the users. On the other hand, we can see it from these perspectives also:
 - currently the users cannot have mixed protocols behind the same NLB - it blocks some use cases on GCE
+- if a user is happy with 2 LB (Service) instances for TCP and UDP still the user has two more forwarding rules to be billed - i.e. it has the same effect on pricing as if those TCP and UDP endpoints were behind the same LB instance
 - already now the bills of users is affected if they have more than 5 forwarding rules as the result of their current Service definitions (e.g. 6 or more port definitions in a single Serice, or if the number of all port definitions in different Services is 6 or more, etc.)
 
-That is, if we consider the "single Service with 6 ports" case the user has to pay more for that single Service ("single LB instance") than for another Service (another LB instance) with 5 or less ports. This phenomenon is already there with the current practice, and the enabling of mixed protocols will not change it to the worse.
+That is, if we consider the "single Service with 6 ports" case the user has to pay more for that single Service ("single LB instance") than for another Service (another LB instance) with 5 or less ports already now. It is not the number of LBs that matters. This phenomenon is already there with the current practice, and the enabling of mixed protocols will not change it to the worse.
 
 #### IBM Cloud
 
