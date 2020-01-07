@@ -63,14 +63,7 @@ superseded-by:
 
 ## Release Signoff Checklist
 
-**ACTION REQUIRED:** In order to merge code into a release, there must be an issue in [kubernetes/enhancements] referencing this KEP and targeting a release milestone **before [Enhancement Freeze](https://github.com/kubernetes/sig-release/tree/master/releases)
-of the targeted release**.
-
-For enhancements that make changes to code or processes/procedures in core Kubernetes i.e., [kubernetes/kubernetes], we require the following Release Signoff checklist to be completed.
-
-Check these off as they are completed for the Release Team to track. These checklist items _must_ be updated for the enhancement to be released.
-
-- [ ] kubernetes/enhancements issue in release milestone, which links to KEP (this should be a link to the KEP location in kubernetes/enhancements, not the initial KEP PR)
+- [ ] kubernetes/enhancements issue in release milestone, which links to KEP (this should be a link to the KEP location in kubernetes/enhancements, not the initial KEP PR) https://github.com/kubernetes/enhancements/issues/1435
 - [ ] KEP approvers have set the KEP status to `implementable`
 - [ ] Design details are appropriately documented
 - [ ] Test plan is in place, giving consideration to SIG Architecture and SIG Testing input
@@ -79,18 +72,9 @@ Check these off as they are completed for the Release Team to track. These check
 - [ ] User-facing documentation has been created in [kubernetes/website], for publication to [kubernetes.io]
 - [ ] Supporting documentation e.g., additional design documents, links to mailing list discussions/SIG meetings, relevant PRs/issues, release notes
 
-**Note:** Any PRs to move a KEP to `implementable` or significant changes once it is marked `implementable` should be approved by each of the KEP approvers. If any of those approvers is no longer appropriate than changes to that list should be approved by the remaining approvers and/or the owning SIG (or SIG-arch for cross cutting KEPs).
-
-**Note:** This checklist is iterative and should be reviewed and updated every time this enhancement is being considered for a milestone.
-
-[kubernetes.io]: https://kubernetes.io/
-[kubernetes/enhancements]: https://github.com/kubernetes/enhancements/issues
-[kubernetes/kubernetes]: https://github.com/kubernetes/kubernetes
-[kubernetes/website]: https://github.com/kubernetes/website
-
 ## Summary
 
-This feature enables the creation of aLoadBalancer Services that has different port definitions with different protocols. 
+This feature enables the creation of a LoadBalancer Service that has different port definitions with different protocols. 
 
 ## Motivation
 
@@ -142,7 +126,7 @@ As a Kubernetes cluster user I want to expose an application that provides its s
 
 #### Alibaba
 
-The Alibaba CPI supports TCP, UDP and HTTPS in Service definitions and can configure the SLB listeners with the protocols defined in the Service.
+The Alibaba Cloud Provider Interface Implementation (CPI) supports TCP, UDP and HTTPS in Service definitions and can configure the SLB listeners with the protocols defined in the Service.
 
 The Alibaba SLB supports TCP, UDP and HTTPS listeners. A listener must be configured for each protocol, and then those listeners can be assigned to the same SLB instance. 
 
@@ -161,7 +145,7 @@ AWS Classic LB supports TCP,TLS, and HTTP(S) protocols behind the same IP addres
 
 AWS Network LB supports TCP/TLS and UDP protocols behind the same IP address. As we can see, UDP cannot be utilized currently, due to the limitation in the AWS CPI.
 
-If NLB is used the HTTP(S) support would require AWS Application LB, but on the other hand that LB type does not support TCP or UDP, i.e. the usage of TCP+HTTP or UDP+HTTP on the same LB instace behind the same IP address is not possible in AWS.
+The usage of TCP+HTTP or UDP+HTTP on the same LB instace behind the same IP address is not possible in AWS.
 
 From a pricing perspective the AWS NLB and the CLB have the following models:
 https://aws.amazon.com/elasticloadbalancing/pricing/
@@ -198,6 +182,8 @@ GCE/GKE creates Network Load Balancers based on the K8s Services with type=LoadB
 - the network load balancer type is External
 - the external IP address is not ephemeral but static
 
+There is a workaround in GCE, please see this comment from the original issue: https://github.com/kubernetes/kubernetes/issues/23880#issuecomment-269054735 If the external IP is static the user can create two Service instances, one for UDP and another for TCP and the user has to specify that static external IP address in those Service definitions in `loadBalancerIP`.
+
 HTTP protocol support: there is a different LB type in GCE for HTTP traffic: HTTP(S) LB. I.e. just like in the case of AWS it is not possible to have e.g. TCP+HTTP or UDP+HTTP behind the same LB/IP address.
 
 Forwarding rule pricing is per rule: there is a flat price up to 5 forwarding rule instances, on top of which every new forwarding rule has additional cost. 
@@ -209,8 +195,8 @@ https://cloud.google.com/compute/network-pricing#forwarding_rules_charges
 A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `cloud.google.com/load-balancer-type: "Internal"`. Forwarding rules are also part of the GCE Internal TCP/UDP Load Balancer architecture, but in case of Internal TCP/UDP Load Balancer it is not supported to define different forwarding rules with different protocols for the same IP address. That is, for Services with type=LoadBalancer and with annotation `cloud.google.com/load-balancer-type: "Internal"` this feature would not be supported.
 
 Summary: The implementation of this feature can affect the bills of GCP users. However the following perspectives are also observed:
-- currently the users cannot have mixed protocols behind the same NLB - it blocks some use cases on GCE
-- if a user is happy with 2 LB (Service) instances for TCP and UDP still the user has two more forwarding rules to be billed - i.e. it has the same effect on pricing as if those TCP and UDP endpoints were behind the same LB instance
+- if a user wants to have UDP and TCP ports behind the same NLB two Services with must be defined, one for TCP and one for UDP. As the pricing is based on the number of forwarding rules this setup also means the same pricing as with the single Service instance.
+- if a user is happy with 2 NLB (Service) instances for TCP and UDP still the user has two more forwarding rules to be billed - i.e. it has the same effect on pricing as if those TCP and UDP endpoints were behind the same NLB instance
 - already now the bills of users is affected if they have more than 5 forwarding rules as the result of their current Service definitions (e.g. 6 or more port definitions in a single Serice, or if the number of all port definitions in different Services is 6 or more, etc.)
 
 That is, if we consider the "single Service with 6 ports" case the user has to pay more for that single Service ("single LB instance") than for another Service (another LB instance) with 5 or less ports already now. It is not the number of LBs that matters. This phenomenon is already there with the current practice, and the enabling of mixed protocols will not change it to the worse.
@@ -288,8 +274,9 @@ Con:
 #### Merging Services in CPI
 
 This one is not really a classic option control mechanism. The idea comes from the current practice implemented in MetalLB: https://metallb.universe.tf/usage/#ip-address-sharing
+The same works in GCE as a workaround.
 
-I.e. if a cloud provider wants to support this feature the CPI must have a logic to apply the Service definitions with a common key value (for exampele LoadBalancerIP) on the same LoadBalancer instance. If the CPI does not implement this support it will work as it does currently.
+I.e. if a cloud provider wants to support this feature the CPI must have a logic to apply the Service definitions with a common key value (for example loadBalancerIP) on the same LoadBalancer instance. If the CPI does not implement this support it will work as it does currently.
 Pro:
 - the cloud provider can decide when to support this feature, and until that it works as currently for this kind of config
 Con:
@@ -298,15 +285,9 @@ Con:
 
 ### Test Plan
 
-**Note:** *Section not required until targeted at a release.*
-
 ### Graduation Criteria
 
-**Note:** *Section not required until targeted at a release.*
-
 #### Examples
-
-These are generalized examples to consider, in addition to the aforementioned [maturity levels][maturity-levels].
 
 ##### Alpha -> Beta Graduation
 
@@ -320,8 +301,6 @@ These are generalized examples to consider, in addition to the aforementioned [m
 - N installs
 - More rigorous forms of testing e.g., downgrade tests and scalability tests
 - Allowing time for feedback
-
-**Note:** Generally we also wait at least 2 releases between beta and GA/stable, since there's no opportunity for user feedback, or even bug reports, in back-to-back releases.
 
 ##### Removing a deprecated flag
 
@@ -364,7 +343,6 @@ Major milestones might include
 - when the KEP was retired or superseded
 
 ## Drawbacks [optional]
-
 
 ## Alternatives [optional]
 
