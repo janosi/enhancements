@@ -94,8 +94,8 @@ This feature enables the creation of aLoadBalancer Services that has different p
 
 ## Motivation
 
-The ultimate goal of the feature is to support the use cases of the users when they want to expose their applications via a single IP address but different L4 protocols on a cloud provided load balancer. 
-The following issue and PR shows the interest of the users in this feature:
+The ultimate goal of this feature is to support users that want to expose their applications via a single IP address but different L4 protocols with a cloud provided load-balancer. 
+The following issue and PR shows considerable interest from users that would benefit from this feature:
 https://github.com/kubernetes/kubernetes/issues/23880
 https://github.com/kubernetes/kubernetes/pull/75831
 
@@ -103,8 +103,8 @@ https://github.com/kubernetes/kubernetes/pull/75831
 
 The goals of this KEP are:
 
-- analyze the impact of this feature in relation considering the load balancer implementation of cloud providers
-- define how the activation of this feature could be made configurable if the load balancer implementations of the cloud providers requires such optional behavior
+- To analyze the impact of this feature with regard to current implementations of cloud-provider load-balancers
+- define how the activation of this feature could be made configurable if certain cloud-provider load-balancer implementations do not want to provide this feature
 
 ### Non-Goals
 
@@ -130,13 +130,13 @@ spec:
     app: my-dns-server
   ```
 
-Once that limit is removed those Service definitions will reach the Cloud Provider LB controller implementations. The logic of the particular Cloud Provider LB controller and of course the actual capabilities and architecture of the backing Cloud Load Balancer services determines how the actual exposure of the application really mnaifests. For this reason it is important to understand the capabilities of those backing services and to design this feature accordingly.
+Once that limit is removed those Service definitions will reach the Cloud Provider LB controller implementations. The logic of the particular Cloud Provider LB controller and of course the actual capabilities and architecture of the backing Cloud Load Balancer services determines how the actual exposure of the application really manifests. For this reason it is important to understand the capabilities of those backing services and to design this feature accordingly.
 
 ### User Stories [optional]
 
 #### Story 1
 
-As a Kubernetes cluster user I want to expose my application that provides its services on different protocols on a single cloud provider load balancer IP. In order to achieve this I want to define different `ports` with different protocols in my Service definition with `type: LoadBalancer`
+As a Kubernetes cluster user I want to expose an application that provides its service on different protocols with a single cloud provider load balancer IP. In order to achieve this I want to define different `ports` with mixed protocols in my Service definition of `type: LoadBalancer`
 
 ### Implementation Details/Notes/Constraints [optional]
 
@@ -144,7 +144,7 @@ As a Kubernetes cluster user I want to expose my application that provides its s
 
 The Alibaba CPI supports TCP, UDP and HTTPS in Service definitions and can configure the SLB listeners with the protocols defined in the Service.
 
-The Alibaba SLB supports TCP, UDP and HTTPS listeners, an own listener must be configured for each protocol, and those listeners can be assigned to the same SLB instance. 
+The Alibaba SLB supports TCP, UDP and HTTPS listeners. A listener must be configured for each protocol, and then those listeners can be assigned to the same SLB instance. 
 
 The number of listeners does not affect SLB pricing.
 https://www.alibabacloud.com/help/doc-detail/74809.htm
@@ -155,7 +155,7 @@ Summary: Alibaba CPI and SLB seems to support mixed protocol Services, and the p
 
 #### AWS
 
-The AWS CPI does not support other protocol in the Service definition than TCP for load balancers. Beside that the AWS CPI looks for annotations on the Service to determine whether TCP, TLS or HTTP(S) listener should be created in the AWS ELB for a configured Service port.
+The AWS CPI does not support mixed protocols in the Service definition since it only allows TCP for load balancers. The AWS CPI looks for annotations on the Service to determine whether TCP, TLS or HTTP(S) listener should be created in the AWS ELB for a configured Service port.
 
 AWS Classic LB supports TCP,TLS, and HTTP(S) protocols behind the same IP address. 
 
@@ -163,9 +163,9 @@ AWS Network LB supports TCP/TLS and UDP protocols behind the same IP address. As
 
 If NLB is used the HTTP(S) support would require AWS Application LB, but on the other hand that LB type does not support TCP or UDP, i.e. the usage of TCP+HTTP or UDP+HTTP on the same LB instace behind the same IP address is not possible in AWS.
 
-From pricing perspective the AWS NLB and the CLB have the following models:
+From a pricing perspective the AWS NLB and the CLB have the following models:
 https://aws.amazon.com/elasticloadbalancing/pricing/
-Both are rather usage based than "number of protocols" based, though it is true that in case of NLB TCP, UDP and TLS has separated quotas in the pricing units.
+Both are primarily usage based rather than charging based on the number of protocol, however NLBs have separate pricing unit quotas for TCP, UDP and TLS.
 
 A user can ask for an internal Load Balancer via a K8s Service definition that also has the annotation `service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0`. So far the author could not find any difference in the usage and pricing of those when compared to the external LBs - except the pre-requisite of a private subnet on which the LB can be deployed.
 
@@ -175,7 +175,7 @@ Summary: AWS CPI is the current bottleneck with its TCP-only limitation. As long
 
 Azure CPI LB documentation: https://github.com/kubernetes-sigs/cloud-provider-azure/blob/master/docs/services/README.md
 
-The Azure CPI already supports the usage of both UDP and TCP protocols in the same Service definition. It is achieved with the CPI specific annotation `service.beta.kubernetes.io/azure-load-balancer-mixed-protocols`. If this key has value `true` in the Service definition the Azure CPI adds the other protocol value (UDP or TCP) to its internal Service representation, and as a consequence it also manages twice the amount of load balancer rules for the specific frontend. 
+The Azure CPI already supports the usage of both UDP and TCP protocols in the same Service definition. It is achieved with the CPI specific annotation `service.beta.kubernetes.io/azure-load-balancer-mixed-protocols`. If this key has value of `true` in the Service definition, the Azure CPI adds the other protocol value (UDP or TCP) to its internal Service representation. Consequently, it also manages twice the amount of load balancer rules for the specific frontend. 
 
 Only TCP and UDP are supported in the current mixed protocol configuration.
 
@@ -192,7 +192,7 @@ Summary: Azure already has mixed protocol support for TCP and UDP, and it alread
 
 #### GCE
 
-The GCE CPI supports both TCP and UDP protocols in Services. Other protocols are not supported.
+The GCE CPI supports only TCP and UDP protocols in Services.
 
 GCE/GKE creates Network Load Balancers based on the K8s Services with type=LoadBalancer. In GCE there are "forwarding rules" that define how the incoming traffic shall be forwarded to the compute instances. A single forwarding rule can support either TCP or UDP but not both. In order to have both TCP and UDP forwarding rules we have to create separate forwarding rule instances for those. Two or more forwarding rules can share the same external IP if
 - the network load balancer type is External
@@ -204,11 +204,11 @@ Forwarding rule pricing is per rule: there is a flat price up to 5 forwarding ru
 
 https://cloud.google.com/compute/network-pricing#forwarding_rules_charges
 
-As we can see two different protocols in the same K8s Service definition would result in the creation of 2 forwarding rules in GCP, which has the same fixed price only up to 5 forwarding rule instances, but on top of that every new rule means extra cost.
+[GCP forwarding_rules_charges](https://cloud.google.com/compute/network-pricing#forwarding_rules_charges) suggest that the same K8s Service definition would result in the creation of 2 forwarding rules in GCP. This has the same fixed price up to 5 forwarding rule instances, and each additional rule results in extra cost.
 
 A user can ask for an internal TCP/UDP Load Balancer via a K8s Service definition that also has the annotation `cloud.google.com/load-balancer-type: "Internal"`. Forwarding rules are also part of the GCE Internal TCP/UDP Load Balancer architecture, but in case of Internal TCP/UDP Load Balancer it is not supported to define different forwarding rules with different protocols for the same IP address. That is, for Services with type=LoadBalancer and with annotation `cloud.google.com/load-balancer-type: "Internal"` this feature would not be supported.
 
-Summary: the implementation of this feature can affect the bills of the users. On the other hand, we can see it from these perspectives also:
+Summary: The implementation of this feature can affect the bills of GCP users. However the following perspectives are also observed:
 - currently the users cannot have mixed protocols behind the same NLB - it blocks some use cases on GCE
 - if a user is happy with 2 LB (Service) instances for TCP and UDP still the user has two more forwarding rules to be billed - i.e. it has the same effect on pricing as if those TCP and UDP endpoints were behind the same LB instance
 - already now the bills of users is affected if they have more than 5 forwarding rules as the result of their current Service definitions (e.g. 6 or more port definitions in a single Serice, or if the number of all port definitions in different Services is 6 or more, etc.)
