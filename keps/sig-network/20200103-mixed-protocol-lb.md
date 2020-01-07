@@ -249,6 +249,8 @@ If the current limitation is removed without any option control we introduce the
 - Oracle: no risk
 - Tencent Cloud: no risk
 
+The other risk is in the introduction of this feature without an option control mechanism, i.e. as a general change in Service handling. In that case there is the question whether this feature should be a part of the conformance test set, because it can affect the conformance of cloud providers.
+
 A possible mitigation is to put the feature behind option control. 
 
 ## Design Details
@@ -262,7 +264,7 @@ Currently a feature gate is used to control its activation status. Though if we 
 
 #### Annotiation in the Service definition
 
-In this alternative we would have a new annotation in the `kubernetes.io` annotation namespace. Example: `kubernetes.io/mixedprotocol`. If this annotation is applied on a Service definition the Service would be accepted by the K8s API.
+In this alternative we would have a new annotation in the `kubernetes.io` annotation namespace, as it was planned in the original PR. Example: `kubernetes.io/mixedprotocol`. If this annotation is applied on a Service definition the Service would be accepted by the K8s API.
 
 Pro: 
 - a kind of "implied conduct" from the user's side. The user explicitly defines with the usage of the annotation that the usage of multiple protocols on the same LoadBalancer is accepted
