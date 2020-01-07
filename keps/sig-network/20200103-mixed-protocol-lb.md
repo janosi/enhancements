@@ -90,7 +90,7 @@ Check these off as they are completed for the Release Team to track. These check
 
 ## Summary
 
-The `Different protocols in the same Service definition with type=LoadBalancer` feature enables the creation of such LoadBalancer Services that have different port definitions with different protocols. 
+This feature enables the creation of aLoadBalancer Services that has different port definitions with different protocols. 
 
 ## Motivation
 
@@ -369,4 +369,3 @@ Major milestones might include
 ## Alternatives [optional]
 
 ## Infrastructure Needed [optional]
-
